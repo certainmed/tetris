@@ -35,11 +35,11 @@ You only need a modern web browser (Chrome, Firefox, Safari, or Edge) to run thi
 ### Installation & Running
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/yourusername/pastel-tetris.git](https://github.com/yourusername/pastel-tetris.git)
+    git clone [https://github.com/certainmed/tetris.git](https://github.com/certainmed/tetris.git)
     ```
 2.  **Navigate to the project directory:**
     ```bash
-    cd pastel-tetris
+    cd tetris
     ```
 3.  **Play the game:**
     Simply open the `index.html` file in your preferred web browser.
