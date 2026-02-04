@@ -470,7 +470,7 @@
   <div id="tetris">
     <div id="menu">
       <h1 class="game-title">Tetris</h1>
-      <p id="start"><a href="javascript:TetrisGame.play();">Press Space to Play</a></p>
+      <p id="start"><a href="javascript:TetrisGame.play();">Press Enter to Play</a></p>
 
       <div class="next-piece-container">
         <p class="section-label">Next</p>
@@ -490,6 +490,7 @@
       <div class="controls-hint">
         <kbd>←</kbd> <kbd>→</kbd> Move<br>
         <kbd>↑</kbd> Rotate <kbd>↓</kbd> Drop<br>
+        <kbd>Space</kbd> Hard Drop<br>
         <kbd>Esc</kbd> End game
       </div>
     </div>
@@ -521,6 +522,7 @@
     // =========================================================================
 
     const KEYS = Object.freeze({
+      ENTER: 13,
       ESC: 27,
       SPACE: 32,
       LEFT: 37,
@@ -535,7 +537,8 @@
       DOWN: 2,
       LEFT: 3,
       MIN: 0,
-      MAX: 3
+      MAX: 3,
+      HARD_DROP: 4
     });
 
     const GAME_CONFIG = Object.freeze({
@@ -933,14 +936,23 @@
        * @param {GameBoard} board - Game board
        * @param {Object|null} currentPiece - Current falling piece
        * @param {boolean} isPlaying - Whether game is active
+       * @param {number} ghostY - Ghost Y position
        */
-      renderCourt(board, currentPiece, isPlaying) {
+      renderCourt(board, currentPiece, isPlaying, ghostY) {
         if (!this.invalidFlags.court) return;
 
         const ctx = this.mainCtx;
         ctx.save();
         ctx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
         ctx.translate(0.5, 0.5);
+
+        // Draw ghost piece
+        if (isPlaying && currentPiece) {
+          ctx.save();
+          ctx.globalAlpha = 0.2;
+          this.drawPiece(ctx, currentPiece.type, currentPiece.x, ghostY, currentPiece.dir);
+          ctx.restore();
+        }
 
         // Draw current falling piece
         if (isPlaying && currentPiece) {
@@ -1016,9 +1028,10 @@
        * @param {number} score - Visual score
        * @param {number} rows - Rows cleared
        * @param {boolean} isPlaying - Game state
+       * @param {number} ghostY - Ghost Y position
        */
-      render(board, currentPiece, nextPiece, score, rows, isPlaying) {
-        this.renderCourt(board, currentPiece, isPlaying);
+      render(board, currentPiece, nextPiece, score, rows, isPlaying, ghostY) {
+        this.renderCourt(board, currentPiece, isPlaying, ghostY);
         this.renderNext(nextPiece);
         this.renderScore(score);
         this.renderRows(rows);
@@ -1101,12 +1114,16 @@
               this.actionQueue.push(DIRECTIONS.DOWN);
               handled = true;
               break;
+            case KEYS.SPACE:
+              this.actionQueue.push(DIRECTIONS.HARD_DROP);
+              handled = true;
+              break;
             case KEYS.ESC:
               this.onAction('lose');
               handled = true;
               break;
           }
-        } else if (event.keyCode === KEYS.SPACE) {
+        } else if (event.keyCode === KEYS.ENTER) {
           this.onPlay();
           handled = true;
         }
@@ -1303,6 +1320,20 @@
       }
 
       /**
+       * Get ghost Y position for current piece
+       * @returns {number} Y position
+       */
+      getGhostY() {
+        if (!this.currentPiece) return 0;
+
+        let y = this.currentPiece.y;
+        while (Piece.canOccupy(this.board, this.currentPiece.type, this.currentPiece.x, y + 1, this.currentPiece.dir)) {
+          y++;
+        }
+        return y;
+      }
+
+      /**
        * Drop piece one row or lock it in place
        */
       dropPiece() {
@@ -1326,6 +1357,19 @@
             this.lose();
           }
         }
+      }
+
+      /**
+       * Hard drop current piece
+       */
+      hardDrop() {
+        if (!this.isPlaying || !this.currentPiece) return;
+
+        const y = this.getGhostY();
+        const distance = y - this.currentPiece.y;
+        this.addScore(distance * 2); // Bonus score for hard drop
+        this.currentPiece.y = y;
+        this.dropPiece();
       }
 
       /**
@@ -1355,6 +1399,9 @@
             break;
           case DIRECTIONS.DOWN:
             this.dropPiece();
+            break;
+          case DIRECTIONS.HARD_DROP:
+            this.hardDrop();
             break;
         }
       }
@@ -1401,7 +1448,8 @@
           this.nextPiece,
           this.visualScore,
           this.rows,
-          this.isPlaying
+          this.isPlaying,
+          this.getGhostY()
         );
 
         this.animationId = requestAnimationFrame(this.gameLoop);
